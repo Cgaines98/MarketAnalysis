@@ -16,10 +16,3 @@ Matplotlib
 Discord bot posts stocks with personal interest to me daily
 
 Discord bot responds to calls starting with 'c^' see botCommands.txt for full documentation
-
-LSTM algorithm
-Make decision on pyTorch or tensorFLow
-
-## Future (potential) features
-
-- ColtenCodes.com website integration
