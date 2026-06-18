@@ -10,5 +10,5 @@ Stonk only drops fax no cap
     - Returns averages for open/close and max profit that could have been made over that period of time
 
 - `c^ compare <TickerA> <TickerB>`
-    - Returns a graph of the closing performance of both `<TicketA>` and `<TickerB>` in terms of percentage gain/loss
+    - Returns a graph of the closing performance of both `<TickerA>` and `<TickerB>` in terms of percentage gain/loss
     - Returns averages comparison (scaled)
