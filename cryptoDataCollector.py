@@ -1,92 +1,58 @@
-import pandas as pd
-import numpy as np
+import logging
 import os
 import time
-from binance.client import Client
 from datetime import datetime
 
+import pandas as pd
+from binance.client import Client
+from dotenv import load_dotenv
 
-def cleanData(data):
-    """
-    Converts epoch time to readable time. No need to sort, data comes in chronological order
-    casts open high low and volume to floats
-    Drops noisy columns
+load_dotenv()
+logger = logging.getLogger(__name__)
 
-    """
-    df = pd.DataFrame(
-        data,
-        columns=[
-            "date",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "close_time",
-            "qav",
-            "num_trades",
-            "taker_base_vol",
-            "taker_quote_vol",
-            "ignore",
-        ],
-    )
-    df = df.drop(
-        columns=["close_time", "qav", "taker_base_vol", "taker_quote_vol", "ignore"]
-    )
-    df["open"] = df["open"].astype(float)
-    df["high"] = df["high"].astype(float)
-    df["low"] = df["low"].astype(float)
-    df["close"] = df["close"].astype(float)
-    df["volume"] = df["volume"].astype(float)
+_KLINE_COLUMNS = [
+    "date", "open", "high", "low", "close", "volume",
+    "close_time", "qav", "num_trades", "taker_base_vol", "taker_quote_vol", "ignore",
+]
+_DROP_COLUMNS = ["close_time", "qav", "taker_base_vol", "taker_quote_vol", "ignore"]
+_FLOAT_COLUMNS = ["open", "high", "low", "close", "volume"]
+
+
+def clean_data(data: list) -> pd.DataFrame:
+    df = pd.DataFrame(data, columns=_KLINE_COLUMNS)
+    df = df.drop(columns=_DROP_COLUMNS)
+    df[_FLOAT_COLUMNS] = df[_FLOAT_COLUMNS].astype(float)
     return df
 
 
-def writeAverages(df):
-    """
-    Returns the Min, Max, Average, and delta of mix/max (maximum possible profit/maximum possible loss)
-    """
-    highestHigh = df["high"].astype(float).max()
-    lowestLow = df["high"].astype(float).min()
-    delta = highestHigh - lowestLow
-    # dateHigh = df.loc[df['high'].idxmax(), 'date']
-    # dateLow = df.loc[df['low'].idxmin(), 'date']
-    # profit = delta if dateHigh > dateLow else delta * -1
-    netPercentage = df.iloc[0]["open"]
-
-    # print('Maximum profit/loss if purchased at peak/valley times:', profit)
-    print("------------------------------------High over 30 days:", highestHigh)
-    print("-------------------------------------Low over 30 days:", lowestLow)
+def log_summary(df: pd.DataFrame, symbol: str) -> None:
+    highest_high = df["high"].max()
+    lowest_low = df["low"].min()
+    logger.info("%s — 30d high: %.4f  low: %.4f", symbol, highest_high, lowest_low)
 
 
-def writeFilesToCSV(df, symbol):
-    """
-    Convert Epoch time to human readable and write to CSV
-    """
+def write_to_csv(df: pd.DataFrame, symbol: str) -> None:
+    df = df.copy()
     df["date"] = df["date"].apply(
         lambda t: time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(t / 1000))
     )
-    path = (
-        "./data/crypto/" + symbol + "-" + datetime.now().strftime("%Y-%m-%d") + ".csv"
-    )
+    path = f"./data/crypto/{symbol}-{datetime.now().strftime('%Y-%m-%d')}.csv"
     df.to_csv(path, index=False)
+    logger.info("Wrote %s", path)
 
 
 if __name__ == "__main__":
-    """
-    Establishes connection to binance
-    Retrieves crypto data
-    Sends data to be processed/written to csvs
-    """
-    # Connection
-    apikey = os.getenv("PYTHON_BINANCE_API_KEY")
-    secret = os.getenv("PYTHON_BINANCE_SECRET")
-    client = Client(api_key=apikey, api_secret=secret)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
-    # Main loop that will grab data from binance API then send it off for cleaning and writing to
-    symbolList = ["BTCUSDT", "ETHUSDT", "DOGEUSDT"]
-    for symbol in symbolList:
+    client = Client(
+        api_key=os.getenv("PYTHON_BINANCE_API_KEY"),
+        api_secret=os.getenv("PYTHON_BINANCE_SECRET"),
+    )
+
+    symbols = ["BTCUSDT", "ETHUSDT", "DOGEUSDT"]
+    for symbol in symbols:
+        logger.info("Processing %s", symbol)
         data = client.get_historical_klines(symbol, interval="1h", start_str="30d")
-        print("\n\nProcessing:", symbol)
-        df = cleanData(data)
-        writeAverages(df)
-        writeFilesToCSV(df, symbol)
+        df = clean_data(data)
+        log_summary(df, symbol)
+        write_to_csv(df, symbol)
