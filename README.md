@@ -18,8 +18,7 @@ Copy `.env.example` to `.env` and fill in your keys (see [Environment variables]
 
 | File | Purpose |
 |------|---------|
-| `cryptoDataCollector.py` | Fetches OHLCV history from Binance and writes CSVs to `./data/crypto/` |
-| `stockDataCollector.py` | Fetches OHLCV history from yfinance and writes CSVs to `./data/yfinance/` |
+| `dataCollector.py` | Fetches OHLCV history for stocks and crypto via yfinance and writes CSVs to `./data/` |
 | `dataVisualization.py` | Builds interactive Plotly charts from collected CSVs and saves them to `./charts/` |
 | `prediction.py` | Trains an LSTM direction classifier and saves the model to `./models/` |
 | `reportingBot.py` | Discord bot that responds to `c^` commands with live stock data |
@@ -27,11 +26,13 @@ Copy `.env.example` to `.env` and fill in your keys (see [Environment variables]
 ## Data collection
 
 ```bash
-python stockDataCollector.py     # fetches MSFT, AAPL, TSLA (1 year, daily)
-python cryptoDataCollector.py    # fetches BTCUSDT, ETHUSDT, DOGEUSDT (30 days, 1h)
+python dataCollector.py                                     # default: AAPL MSFT TSLA BTC-USD ETH-USD DOGE-USD
+python dataCollector.py --symbols AAPL BTC-USD              # custom symbols
+python dataCollector.py --symbols TSLA --period 2y          # longer history
+python dataCollector.py --symbols BTC-USD --interval 1h     # hourly bars
 ```
 
-CSVs are written to `./data/yfinance/` and `./data/crypto/` respectively, named `<SYMBOL>-<DATE>.csv`.
+CSVs are written to `./data/`, named `<SYMBOL>-<DATE>.csv`. Uses yfinance for both stocks and crypto — no API key required.
 
 ## Visualization
 
