@@ -21,6 +21,7 @@ Copy `.env.example` to `.env` and fill in your keys (see [Environment variables]
 | `dataCollector.py` | Fetches OHLCV history for stocks and crypto via yfinance and writes CSVs to `./data/` |
 | `dataVisualization.py` | Builds interactive Plotly charts from collected CSVs and saves them to `./charts/` |
 | `prediction.py` | Trains an LSTM direction classifier and saves the model to `./models/` |
+| `api.py` | FastAPI backend — serves Plotly chart JSON for any symbol |
 | `reportingBot.py` | Discord bot that responds to `c^` commands with live stock data |
 
 ## Data collection
@@ -70,6 +71,46 @@ Saves the best model to `./models/<SYMBOL>_lstm.keras` and writes two charts to 
 - `<SYMBOL>_training.html` — train/val loss and accuracy curves
 - `<SYMBOL>_predictions.html` — predicted directions on the test set with confidence bars
 
+## API
+
+```bash
+pip install fastapi "uvicorn[standard]"
+uvicorn api:app --reload --port 8000
+```
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check |
+| `GET /symbols` | Default symbol list |
+| `GET /chart/{symbol}` | Plotly figure JSON for the symbol |
+
+**Query params for `/chart/{symbol}`:**
+
+| Param | Default | Options |
+|-------|---------|---------|
+| `period` | `1y` | `1d 5d 1mo 3mo 6mo 1y 2y 5y max` |
+| `interval` | `1d` | `1m 5m 15m 30m 1h 1d 1wk 1mo` |
+
+Examples:
+```
+GET /chart/AAPL
+GET /chart/BTC-USD?period=3mo&interval=1h
+GET /chart/TSLA?period=2y
+```
+
+Interactive API docs are available at `http://localhost:8000/docs` when the server is running.
+
+**Rendering a chart with plotly.js:**
+```html
+<div id="chart"></div>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+  fetch('/chart/AAPL')
+    .then(r => r.json())
+    .then(fig => Plotly.newPlot('chart', fig.data, fig.layout));
+</script>
+```
+
 ## Discord bot
 
 The bot listens for messages prefixed with `c^`.
@@ -88,7 +129,5 @@ python reportingBot.py
 
 | Variable | Used by |
 |----------|---------|
-| `PYTHON_BINANCE_API_KEY` | `cryptoDataCollector.py` |
-| `PYTHON_BINANCE_SECRET` | `cryptoDataCollector.py` |
 | `BOT_TOKEN` | `reportingBot.py` |
 | `DISCORD_GUILD` | `reportingBot.py` |

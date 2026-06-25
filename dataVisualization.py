@@ -1,9 +1,12 @@
+import argparse
 import glob
+import io
 import logging
 import os
 
 import pandas as pd
 import plotly.graph_objects as go
+from PIL import Image
 from plotly.subplots import make_subplots
 
 logger = logging.getLogger(__name__)
@@ -155,10 +158,31 @@ def build_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
 
 # ── Entry point ─────────────────────────────────────────────────────────────
 
-def plot_all(data_dirs: list[str], output_dir: str) -> None:
+def plot_all(data_dirs: list[str], output_dir: str, pdf: bool = False) -> None:
     os.makedirs(output_dir, exist_ok=True)
+    csv_paths = []
     for data_dir in data_dirs:
-        for path in glob.glob(os.path.join(data_dir, "*.csv")):
+        csv_paths.extend(sorted(glob.glob(os.path.join(data_dir, "*.csv"))))
+
+    if pdf:
+        pages: list[Image.Image] = []
+        for path in csv_paths:
+            symbol = os.path.basename(path).split("-")[0]
+            logger.info("Rendering %s", symbol)
+            try:
+                df = load_csv(path)
+                fig = build_chart(df, symbol)
+                png_bytes = fig.to_image(format="png", width=1600, height=900, scale=2)
+                pages.append(Image.open(io.BytesIO(png_bytes)).convert("RGB"))
+            except Exception:
+                logger.exception("Failed to render %s", symbol)
+
+        if pages:
+            out_path = os.path.join(output_dir, "charts.pdf")
+            pages[0].save(out_path, format="PDF", save_all=True, append_images=pages[1:])
+            logger.info("Saved PDF → %s", out_path)
+    else:
+        for path in csv_paths:
             symbol = os.path.basename(path).split("-")[0]
             logger.info("Plotting %s from %s", symbol, path)
             try:
@@ -174,7 +198,14 @@ def plot_all(data_dirs: list[str], output_dir: str) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
+    parser = argparse.ArgumentParser(description="Generate financial charts")
+    parser.add_argument("--pdf", action="store_true", help="Combine all charts into a single PDF instead of individual HTML files")
+    parser.add_argument("--data-dirs", nargs="+", default=["./data"], metavar="DIR")
+    parser.add_argument("--output-dir", default="./charts", metavar="DIR")
+    args = parser.parse_args()
+
     plot_all(
-        data_dirs=["./data"],
-        output_dir="./charts",
+        data_dirs=args.data_dirs,
+        output_dir=args.output_dir,
+        pdf=args.pdf,
     )
